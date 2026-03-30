@@ -30,10 +30,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # ── Signal filter ─────────────────────────────────────────────────────────
     "signal_filter": {
-        "mode": "majority",        # majority | unanimous | weighted | best
-        "confidence_threshold": 0.62,
+        "mode": "weighted",        # majority | unanimous | weighted | best
+        "confidence_threshold": 0.68,
         "agent_weights": {
-            "Multi-Confirmation Agent": 2.0,
+            "Multi-Confirmation Agent": 3.0,
             "RSI Agent": 1.0,
             "MACD Agent": 1.0,
             "Bollinger Bands Agent": 1.0,
@@ -46,10 +46,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "rsi": {
             "enabled": True,
             "period": 14,
-            "oversold": 30,
-            "overbought": 70,
+            "oversold": 28,
+            "overbought": 72,
             "ema_confirm": True,
-            "min_confidence": 0.60,
+            "min_confidence": 0.62,
         },
         "macd": {
             "enabled": True,
@@ -57,14 +57,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "slow": 26,
             "signal": 9,
             "rsi_filter": True,
-            "min_confidence": 0.60,
+            "min_confidence": 0.62,
         },
         "bollinger": {
             "enabled": True,
             "period": 20,
             "std_dev": 2.0,
             "atr_min": 0.0008,
-            "min_confidence": 0.60,
+            "min_confidence": 0.62,
         },
         "stochastic": {
             "enabled": True,
@@ -72,12 +72,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "d_period": 3,
             "oversold": 20,
             "overbought": 80,
-            "min_confidence": 0.60,
+            "min_confidence": 0.62,
         },
         "multi_confirmation": {
             "enabled": True,
-            "min_confirmations": 3,
-            "min_confidence": 0.65,
+            "min_confirmations": 4,
+            "min_confidence": 0.68,
         },
     },
 
@@ -89,6 +89,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "soros_cycles": 3,
         "max_bet": 50.0,
         "min_bet": 1.0,
+        "confidence_scaling": True,   # scale bet up to 1.5x on high-confidence signals
     },
 
     # ── Risk management ───────────────────────────────────────────────────────
@@ -103,6 +104,17 @@ DEFAULT_CONFIG: Dict[str, Any] = {
 
     # ── Loop timing ───────────────────────────────────────────────────────────
     "loop_interval": 5,            # seconds between analysis cycles
+
+    # ── Human-like behaviour ─────────────────────────────────────────────────
+    # think_min / think_max: random hesitation (seconds) before each trade.
+    # skip_conf_threshold: skip signals below this confidence with skip_probability.
+    # skip_probability: fraction [0,1] of borderline signals to pass on.
+    "human_behavior": {
+        "think_min": 1.5,
+        "think_max": 4.5,
+        "skip_conf_threshold": 0.75,
+        "skip_probability": 0.08,
+    },
 }
 
 

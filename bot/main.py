@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import random
 import sys
 import time
 from datetime import datetime
@@ -44,6 +45,7 @@ from bot.strategies.money_manager import MoneyManager
 from bot.strategies.risk_manager import RiskManager
 from bot.strategies.signal_filter import SignalFilter
 from bot.ui.dashboard import Dashboard
+from bot.ui.login import prompt_credentials
 from bot.utils.indicators import candles_to_ohlc
 
 # ---------------------------------------------------------------------------
@@ -203,11 +205,34 @@ class TradingBot:
             self._update_dashboard_stats()
             return
 
-        # ── 6. Place trade ────────────────────────────────────────────────────
+        # ── 6. Human-like hesitation before placing the trade ────────────────
+        # Simulate the variable reaction time a real trader would have.
+        hb = self.cfg.get("human_behavior", {})
+        think_time = random.uniform(
+            hb.get("think_min", 1.5),
+            hb.get("think_max", 4.5),
+        )
+        self.dashboard.bot_status = f"Analisando sinal ({think_time:.1f}s)…"
+        self.dashboard.refresh()
+        time.sleep(think_time)
+
+        # Occasionally skip a borderline signal (human-like caution).
+        # Threshold and probability are configurable via config["human_behavior"].
+        hb = self.cfg.get("human_behavior", {})
+        skip_conf_threshold = hb.get("skip_conf_threshold", 0.75)
+        skip_probability = hb.get("skip_probability", 0.08)
+        if final.confidence < skip_conf_threshold and random.random() < skip_probability:
+            logger.info("Signal skipped (human-like caution): conf=%.2f", final.confidence)
+            self.dashboard.update_signal("WAIT", 0.0, "Sinal ignorado por cautela")
+            self._update_dashboard_stats()
+            return
+
+        # ── 7. Place trade ────────────────────────────────────────────────────
         bet = self.money_manager.next_bet(
             balance,
             self.cfg["risk_management"]["min_bet"],
             self.cfg["risk_management"]["max_bet"],
+            confidence=final.confidence,
         )
         self.dashboard.money_manager_info = self.money_manager.strategy_info
 
@@ -316,12 +341,16 @@ def main():
 
     cfg = config_module.load(args.config)
 
+    # Show interactive login form if credentials are not already configured
+    if not cfg["email"] or not cfg["password"]:
+        cfg = prompt_credentials(cfg, config_path=args.config)
+
     if not cfg["email"] or not cfg["password"]:
         print(
-            "\n[ERROR] Credentials not set.\n"
-            "  Option 1: Edit config.json (email + password fields)\n"
-            "  Option 2: Set IQ_EMAIL and IQ_PASSWORD environment variables\n"
-            "  Option 3: Run with --generate-config to create a sample config.json\n"
+            "\n[ERROR] Credenciais não fornecidas.\n"
+            "  Opção 1: Preencha os campos no formulário de login\n"
+            "  Opção 2: Edite config.json (campos email + password)\n"
+            "  Opção 3: Defina IQ_EMAIL e IQ_PASSWORD como variáveis de ambiente\n"
         )
         sys.exit(1)
 

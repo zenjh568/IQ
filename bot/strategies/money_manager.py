@@ -36,6 +36,7 @@ class MoneyManager:
         self.base_bet: float = config.get("base_bet", 1.0)
         self.martingale_max: int = config.get("martingale_max", 4)
         self.soros_cycles: int = config.get("soros_cycles", 3)
+        self.confidence_scaling: bool = config.get("confidence_scaling", True)
 
         self._current_bet: float = self.base_bet
         self._level: int = 0              # martingale / fibonacci level
@@ -48,8 +49,21 @@ class MoneyManager:
     # Public
     # ------------------------------------------------------------------
 
-    def next_bet(self, balance: float, min_bet: float, max_bet: float) -> float:
-        """Return the bet for the *next* trade (before the trade is placed)."""
+    def next_bet(self, balance: float, min_bet: float, max_bet: float,
+                 confidence: float = 0.70) -> float:
+        """Return the bet for the *next* trade (before the trade is placed).
+
+        Parameters
+        ----------
+        balance:
+            Current account balance (used for % strategies).
+        min_bet / max_bet:
+            Hard limits on the bet size.
+        confidence:
+            Signal confidence [0, 1].  When ``confidence_scaling`` is enabled
+            the base bet is multiplied by up to 1.5× for very high-confidence
+            signals (≥ 0.85) and kept at 1× for borderline ones (≤ 0.68).
+        """
         if self.strategy == "flat":
             bet = self.base_bet
         elif self.strategy == "martingale":
@@ -63,6 +77,15 @@ class MoneyManager:
             bet = self.base_bet * self._fib[idx]
         else:
             bet = self.base_bet
+
+        # ── Confidence-based scaling ─────────────────────────────────────────
+        # Only applied for the flat strategy (not during martingale recovery bets).
+        # Scales linearly from 1.0× at the confidence threshold to 1.5× at 1.0.
+        if self.confidence_scaling and self.strategy == "flat":
+            _SCALE_MIN_CONF = 0.68   # confidence at which scaling starts (1.0×)
+            _SCALE_MAX_MULT = 0.50   # additional multiplier added at conf = 1.0
+            scale = 1.0 + max(0.0, confidence - _SCALE_MIN_CONF) / (1.0 - _SCALE_MIN_CONF) * _SCALE_MAX_MULT
+            bet = bet * scale
 
         return round(max(min_bet, min(max_bet, bet)), 2)
 

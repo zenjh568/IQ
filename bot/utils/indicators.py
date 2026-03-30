@@ -181,8 +181,73 @@ def trend_direction(closes: List[float], short: int = 9, long_: int = 21) -> Opt
     return "NEUTRAL"
 
 
+def candle_pattern(
+    opens: List[float],
+    highs: List[float],
+    lows: List[float],
+    closes: List[float],
+) -> Optional[str]:
+    """Detect simple one- and two-candle reversal patterns.
+
+    Returns
+    -------
+    str or None
+        ``'bullish'`` – price likely to rise.
+        ``'bearish'`` – price likely to fall.
+        ``None``      – no recognisable pattern.
+    """
+    if len(closes) < 3:
+        return None
+
+    # Current and previous candle
+    o1, h1, l1, c1 = opens[-2], highs[-2], lows[-2], closes[-2]
+    o2, h2, l2, c2 = opens[-1], highs[-1], lows[-1], closes[-1]
+
+    body1 = abs(c1 - o1)
+    body2 = abs(c2 - o2)
+    range2 = (h2 - l2) if h2 != l2 else 1e-10
+    lower_shadow2 = min(o2, c2) - l2
+    upper_shadow2 = h2 - max(o2, c2)
+
+    # ── Bullish engulfing ────────────────────────────────────────────────────
+    if c1 < o1 and c2 > o2 and o2 <= c1 and c2 >= o1:
+        return "bullish"
+
+    # ── Bearish engulfing ────────────────────────────────────────────────────
+    if c1 > o1 and c2 < o2 and o2 >= c1 and c2 <= o1:
+        return "bearish"
+
+    # ── Hammer (bullish reversal) ────────────────────────────────────────────
+    if body2 > 0 and lower_shadow2 >= 2 * body2 and upper_shadow2 <= body2 * 0.5:
+        return "bullish"
+
+    # ── Shooting star (bearish reversal) ────────────────────────────────────
+    if body2 > 0 and upper_shadow2 >= 2 * body2 and lower_shadow2 <= body2 * 0.5:
+        return "bearish"
+
+    # ── Doji followed by directional move ───────────────────────────────────
+    if body1 < range2 * 0.1 and body2 > range2 * 0.5:
+        return "bullish" if c2 > o2 else "bearish"
+
+    # ── Three consecutive same-direction closes ──────────────────────────────
+    if len(closes) >= 4:
+        # All three candles must be bullish (close > open) and ascending closes
+        if (closes[-3] < closes[-2] < closes[-1]
+                and opens[-3] < closes[-3]
+                and opens[-2] < closes[-2]
+                and opens[-1] < closes[-1]):
+            return "bullish"
+        # All three candles must be bearish (close < open) and descending closes
+        if (closes[-3] > closes[-2] > closes[-1]
+                and opens[-3] > closes[-3]
+                and opens[-2] > closes[-2]
+                and opens[-1] > closes[-1]):
+            return "bearish"
+
+    return None
+
+
 def candles_to_ohlc(candles: list) -> Tuple[List, List, List, List]:
-    """Convert IQOption candle dicts to (opens, highs, lows, closes) lists."""
     opens, highs, lows, closes = [], [], [], []
     for c in candles:
         opens.append(float(c.get("open", c.get("o", 0))))

@@ -9,7 +9,7 @@ from typing import List
 from bot.agents.base_agent import BaseAgent, Signal
 from bot.utils.indicators import (
     rsi, macd, bollinger_bands, stochastic,
-    trend_direction, ema_value, williams_r,
+    trend_direction, ema_value, williams_r, candle_pattern,
 )
 
 
@@ -119,6 +119,17 @@ class MultiConfirmationAgent(BaseAgent):
             votes_call += w
         elif trend == "DOWN":
             votes_put += w
+
+        # ── 7. Candlestick pattern ───────────────────────────────────────────
+        pattern = candle_pattern(opens, highs, lows, closes)
+        indicators["candle_pattern"] = pattern or "none"
+        w = weights.get("candle_pattern", 1.0)
+        if pattern == "bullish":
+            votes_call += w
+            reasons.append("Candle bullish")
+        elif pattern == "bearish":
+            votes_put += w
+            reasons.append("Candle bearish")
 
         # ── Decision ────────────────────────────────────────────────────────
         total = max(votes_call + votes_put, 1e-9)
